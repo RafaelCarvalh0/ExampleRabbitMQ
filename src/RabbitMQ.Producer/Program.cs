@@ -15,7 +15,7 @@ if (int.TryParse(Console.ReadLine(), out int quantidade))
 {
     for (int i = 0; i < quantidade; i++)
     {
-        var pedido = PedidoFakeFactory.CriarComErro(i);
+        var pedido = PedidoFakeFactory.Criar(i);
         await publisher.PublicarAsync(pedido);
         Console.WriteLine("ENTER para o próximo...");
         Console.ReadLine();
