@@ -4,5 +4,6 @@
     {
         public const string Principal = "pedido.criados";
         public const string Dlq = "pedido.dlq";
+        public const string Retry = "pedido.retry";
     }
 }

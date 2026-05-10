@@ -1,4 +1,5 @@
-﻿using RabbitMQ.Producer.Handlers;
+﻿using RabbitMQ.Model.Models;
+using RabbitMQ.Producer.Handlers;
 using RabbitMQ.Shared.Infrastructure;
 using RabbitMQ.Shared.Messaging;
 
@@ -13,9 +14,13 @@ var publisher = new PedidoPublisher(channel);
 Console.WriteLine("Quantos pedidos você quer enviar?");
 if (int.TryParse(Console.ReadLine(), out int quantidade))
 {
+    Console.WriteLine();
+    Console.WriteLine("Deseja enviar um pedido fake com erro? [1]Sim [2]Não");
+    bool criarPedidoComErro = Console.ReadLine()?.Trim().ToLower() == "1";
+
     for (int i = 0; i < quantidade; i++)
     {
-        var pedido = PedidoFakeFactory.Criar(i);
+        Pedido pedido = !criarPedidoComErro ? PedidoFakeFactory.Criar(i) : PedidoFakeFactory.CriarComErro(i);
         await publisher.PublicarAsync(pedido);
         Console.WriteLine("ENTER para o próximo...");
         Console.ReadLine();

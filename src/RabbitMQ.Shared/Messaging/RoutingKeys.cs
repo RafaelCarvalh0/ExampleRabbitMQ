@@ -4,5 +4,6 @@
     {
         public const string PedidoCriado = "pedido.criado";
         public const string PedidoFalha = "pedido.falha";
+        public const string PedidoRetry = "pedido.retry";
     }
 }
