@@ -5,7 +5,7 @@ namespace RabbitMQ.Shared.Infrastructure
 {
     public static class RabbitMqConnectionFactory
     {
-        public static async Task<IConnection> CreateAsync(RabbitMqSettings settings)
+        public static async Task<IConnection> CreateConnectionAsync(RabbitMqSettings settings)
         {
             var factory = new ConnectionFactory
             {

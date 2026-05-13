@@ -27,7 +27,7 @@ public class Worker : BackgroundService
     {
         _logger.LogInformation("Worker Consumer iniciando...");
 
-        _connection = await RabbitMqConnectionFactory.CreateAsync(_settings);
+        _connection = await RabbitMqConnectionFactory.CreateConnectionAsync(_settings);
         _channel = await _connection.CreateChannelAsync();
 
         await RabbitMqQueueSetup.ConfigureAsync(_channel);

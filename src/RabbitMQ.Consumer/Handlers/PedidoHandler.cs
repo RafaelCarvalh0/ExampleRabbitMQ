@@ -5,6 +5,7 @@ using RabbitMQ.Shared.Messaging;
 using RabbitMQ.Consumer.Models;
 using RabbitMQ.Consumer.Repositories;
 using System.Text.Json;
+using RabbitMQ.Models;
 
 public class PedidoHandler
 {
@@ -43,6 +44,10 @@ public class PedidoHandler
     {
         int retryCount = 0;
 
+        var json = System.Text.Encoding.UTF8.GetString(eventArgs.Body.ToArray());
+
+        var pedido = JsonSerializer.Deserialize<Pedido>(json);
+
         try
         {
             if (eventArgs.BasicProperties.Headers?.TryGetValue("x-retry-count", out var retryCountObj) == true)
@@ -50,12 +55,7 @@ public class PedidoHandler
                 retryCount = Convert.ToInt32(retryCountObj);
             }
 
-            _logger.LogInformation("Tentativa {Attempt}/{Max}",retryCount + 1, Retries.MaxRetryAttempts);
-
-            var json = System.Text.Encoding.UTF8.GetString(
-                eventArgs.Body.ToArray());
-
-            var pedido = JsonSerializer.Deserialize<Pedido>(json);
+            _logger.LogInformation("Tentativa {Attempt}/{Max}", retryCount + 1, Retries.MaxRetryAttempts);
 
             #region Validações de negócio
 
@@ -65,14 +65,17 @@ public class PedidoHandler
             if (pedido.ValorTotal < 0)
             {
                 _logger.LogWarning("Pedido {Id} com valor negativo → DLQ", pedido.Id);
+
+                await PublicarEventoAsync(pedido, "Falhou", "Valor negativo");
                 await _channel!.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(pedido.ClienteEmail))
             {
-                _logger.LogWarning(
-                    "Pedido {Id} sem e-mail → DLQ", pedido.Id);
+                _logger.LogWarning("Pedido {Id} sem e-mail → DLQ", pedido.Id);
+
+                await PublicarEventoAsync(pedido, "Falhou", "Email inválido");
                 await _channel!.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
                 return;
             }
@@ -93,6 +96,8 @@ public class PedidoHandler
             PedidoProcessado pedidoProcessado = PedidoProcessado.FromPedido(pedido, retryCount + 1);
             await _repository.SaveAsync(pedidoProcessado);
 
+            await PublicarEventoAsync(pedido, "Processado");
+
             _logger.LogInformation("Pedido {Id} persistido no MongoDB com sucesso", pedido.Id);
 
             await _channel!.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
@@ -105,12 +110,40 @@ public class PedidoHandler
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Erro → avaliando retry");
-            await HandleRetryAsync(eventArgs, retryCount);
+            await HandleRetryAsync(eventArgs, pedido, retryCount);
         }
     }
 
-    private async Task HandleRetryAsync(
-        BasicDeliverEventArgs eventArgs, int retryCount)
+    private async Task PublicarEventoAsync(Pedido pedido, string status, string? motivo = null)
+    {
+        var evento = new PedidoProcessadoEvento
+        {
+            PedidoId = pedido.Id,
+            ClienteEmail = pedido.ClienteEmail,
+            ValorTotal = pedido.ValorTotal,
+            Status = status,
+            Motivo = motivo,
+            ProcessadoEm = DateTimeOffset.UtcNow
+        };
+
+        var json = JsonSerializer.Serialize(evento);
+        var body = System.Text.Encoding.UTF8.GetBytes(json);
+
+        var props = new BasicProperties
+        {
+            DeliveryMode = DeliveryModes.Persistent,
+            ContentType = "application/json"
+        };
+
+        await _channel!.BasicPublishAsync(
+            exchange: Exchanges.Processado,
+            routingKey: string.Empty,
+            mandatory: false,
+            basicProperties: props,
+            body: body);
+    }
+
+    private async Task HandleRetryAsync(BasicDeliverEventArgs eventArgs, Pedido pedido, int retryCount)
     {
         if (retryCount < Retries.MaxRetryAttempts - 1)
         {
@@ -142,6 +175,7 @@ public class PedidoHandler
         {
             _logger.LogError("Limite de retries excedido → DLQ");
 
+            await PublicarEventoAsync(pedido, "Falhou", "Limite de retries excedido");
             await _channel!.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
         }
     }

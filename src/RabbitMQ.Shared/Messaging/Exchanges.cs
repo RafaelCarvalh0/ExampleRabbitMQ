@@ -5,5 +5,6 @@
         public const string Principal = "pedido.exchange";
         public const string Dlx = "pedido.dlx.exchange";
         public const string Retry = "pedido.retry.exchange";
+        public const string Processado = "pedido.processado";
     }
 }

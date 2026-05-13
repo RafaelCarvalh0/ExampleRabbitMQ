@@ -7,21 +7,31 @@ namespace RabbitMQ.Shared.Infrastructure
     {
         public static async Task ConfigureAsync(IChannel channel)
         {
-            #region Exchanges Configuration
+            #region Exchange Principal + Queue Configuration
 
             // Principal
             await channel.ExchangeDeclareAsync(exchange: Exchanges.Principal, type: ExchangeType.Direct, durable: true, autoDelete: false);
 
-            // DLX
-            await channel.ExchangeDeclareAsync(exchange: Exchanges.Dlx, type: ExchangeType.Direct, durable: true, autoDelete: false);
+            // Fila principal com DLX configurado
+            var mainQueueArgs = new Dictionary<string, object>
+            {
+                { "x-dead-letter-exchange", Exchanges.Dlx },
+                { "x-dead-letter-routing-key", RoutingKeys.PedidoFalha }
+            };
 
-            // Retry
-            await channel.ExchangeDeclareAsync(exchange: Exchanges.Retry, type: ExchangeType.Direct, durable: true, autoDelete: false);
+            // Fila principal
+            await channel.QueueDeclareAsync(queue: Queues.Principal, durable: true, exclusive: false, autoDelete: false, arguments: mainQueueArgs!);
+
+            // Bind fila principal ao exchange principal
+            await channel.QueueBindAsync(queue: Queues.Principal, exchange: Exchanges.Principal, routingKey: RoutingKeys.PedidoCriado);
 
             #endregion
 
 
-            #region DLQ Queue Configuration
+            #region Exchange + DLQ Queue Configuration
+
+            // DLX
+            await channel.ExchangeDeclareAsync(exchange: Exchanges.Dlx, type: ExchangeType.Direct, durable: true, autoDelete: false);
 
             // DLQ
             await channel.QueueDeclareAsync(queue: Queues.Dlq, durable: true, exclusive: false, autoDelete: false);
@@ -32,7 +42,10 @@ namespace RabbitMQ.Shared.Infrastructure
             #endregion
 
 
-            #region Retry Queue Configuration
+            #region Exchange + Retry Queue Configuration
+
+            // Retry
+            await channel.ExchangeDeclareAsync(exchange: Exchanges.Retry, type: ExchangeType.Direct, durable: true, autoDelete: false);
 
             // Retry Queue
             var retryQueueArgs = new Dictionary<string, object>
@@ -51,23 +64,17 @@ namespace RabbitMQ.Shared.Infrastructure
             #endregion
 
 
-            #region Main Queue Configuration
+            #region Exchange Processado + Queue Processado Configuration
 
-            // Fila principal com DLX configurado
-            var mainQueueArgs = new Dictionary<string, object>
-            {
-                { "x-dead-letter-exchange", Exchanges.Dlx },
-                { "x-dead-letter-routing-key", RoutingKeys.PedidoFalha }
-            };
+            // Exchange para pedidos processados                                     // Fanout — todos os consumers recebem
+            await channel.ExchangeDeclareAsync(exchange: Exchanges.Processado, type: ExchangeType.Fanout, durable: true, autoDelete: false);
 
-            // Fila principal
-            await channel.QueueDeclareAsync(queue: Queues.Principal, durable: true, exclusive: false, autoDelete: false, arguments: mainQueueArgs!);
-
-            // Bind fila principal ao exchange principal
-            await channel.QueueBindAsync(queue: Queues.Principal, exchange: Exchanges.Principal, routingKey: RoutingKeys.PedidoCriado);
+            // Fila para a aplicação
+            await channel.QueueDeclareAsync(queue: Queues.Processado, durable: true, exclusive: false, autoDelete: false);
+                                                                                                   // Fanout ignora routing key                                                                  
+            await channel.QueueBindAsync(queue: Queues.Processado, exchange: Exchanges.Processado, routingKey: string.Empty); 
 
             #endregion
-
         }
     }
 }
