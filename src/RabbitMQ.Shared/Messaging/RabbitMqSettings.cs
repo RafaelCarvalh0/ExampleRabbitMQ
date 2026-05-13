@@ -2,11 +2,18 @@
 {
     public class RabbitMqSettings
     {
-        public string HostName { get; set; } = "localhost";
-        public int Port { get; set; } = 5672;
-        public string UserName { get; set; } = "admin";
-        public string Password { get; set; } = "admin";
-        public string VirtualHost { get; set; } = "/";
+        public string HostName { get; set; }
+        public int Port { get; set; }
+        public string UserName { get; set; }
+        public string Password { get; set; }
+        public string VirtualHost { get; set; }
 
+    }
+
+    public class MongoDbSettings
+    {
+        public string ConnectionString { get; set; }
+        public string DatabaseName { get; set; }
+        public string CollectionName { get; set; }
     }
 }

@@ -15,5 +15,14 @@ services:
       - rabbitmq_data:/var/lib/rabbitmq
     restart: unless-stopped
 
+  mongodb:
+    image: mongo:7
+    container_name: workerconsumer-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
 volumes:
   rabbitmq_data:
+  mongo_data:

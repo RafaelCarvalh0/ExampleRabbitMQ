@@ -1,12 +1,18 @@
-﻿namespace RabbitMQ.Model.Models
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.Serializers;
+
+namespace RabbitMQ.Model.Models;
+
+public class Pedido
 {
-    public class Pedido
-    {
-        public required Guid Id { get; set; }
-        public required string ClienteEmail { get; set; }
-        public required decimal ValorTotal { get; set; }
-        public required DateTimeOffset DataCriacao { get; set; }
-        public required List<Item> Itens { get; set; }
-    }
+    [BsonId]
+    [BsonRepresentation(BsonType.String)]
+    public required Guid Id { get; set; }
+    public required string ClienteEmail { get; set; }
+    public required decimal ValorTotal { get; set; }
+
+    [BsonSerializer(typeof(DateTimeOffsetSerializer))]
+    public required DateTimeOffset DataCriacao { get; set; }
+    public required List<Item> Itens { get; set; }
 }
-    

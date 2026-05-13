@@ -2,99 +2,147 @@
 using RabbitMQ.Client.Events;
 using RabbitMQ.Model.Models;
 using RabbitMQ.Shared.Messaging;
+using RabbitMQ.Consumer.Models;
+using RabbitMQ.Consumer.Repositories;
 using System.Text.Json;
 
-namespace RabbitMQ.Consumer.Handlers
+public class PedidoHandler
 {
-    public class PedidoHandler(IChannel channel)
+    private readonly ILogger<PedidoHandler> _logger;
+    private readonly IPedidoRepository _repository;
+    private IChannel? _channel;
+    private const bool SimularErroTemporario = false;
+
+    // ← Garante processamento sequencial
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+
+    public PedidoHandler(
+        ILogger<PedidoHandler> logger,
+        IPedidoRepository repository)
     {
-        private int retryCount = 0;
-        private const bool simularErroTemporario = false;
+        _logger = logger;
+        _repository = repository;
+    }
 
-        public async Task HandleAsync(object sender, BasicDeliverEventArgs eventArgs)
+    public void SetChannel(IChannel channel) => _channel = channel;
+
+    public async Task HandleAsync(object sender, BasicDeliverEventArgs eventArgs)
+    {
+        await _semaphore.WaitAsync();
+        try
         {
-            try
+            await ProcessarAsync(eventArgs);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    private async Task ProcessarAsync(BasicDeliverEventArgs eventArgs)
+    {
+        int retryCount = 0;
+
+        try
+        {
+            if (eventArgs.BasicProperties.Headers?.TryGetValue("x-retry-count", out var retryCountObj) == true)
             {
-                if (eventArgs.BasicProperties.Headers != null && eventArgs.BasicProperties.Headers.TryGetValue("x-retry-count", out var retryCountObj))
-                {
-                    retryCount = Convert.ToInt32(retryCountObj);
-                }
-                Console.WriteLine($"🔄 Tentativa de retry: {retryCount + 1}/{Retries.MaxRetryAttempts}");
-
-                var json = System.Text.Encoding.UTF8.GetString(eventArgs.Body.ToArray());
-                var pedido = JsonSerializer.Deserialize<Pedido>(json);
-
-                if (pedido is null)
-                    throw new Exception("Pedido inválido!");
-
-                if (pedido.ValorTotal < 0)
-                {
-                    Console.WriteLine($"❌ Produto com valor negativo: {pedido.ValorTotal:C} → DLQ");
-                    await channel.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(pedido.ClienteEmail))
-                {
-                    Console.WriteLine("❌ O Email está vazio → DLQ");
-                    await channel.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
-                    return;
-                }
-
-
-                if(simularErroTemporario)
-                    throw new Exception("Erro temporário simulado para teste de retry!");
-
-                //if (Random.Shared.Next(0, 10) == 5)
-                //    throw new Exception("Banco temporariamente indisponível");
-
-                await Task.Delay(2000);
-                Console.WriteLine($"✅ Pedido Processado com sucesso: {pedido.Id}");
-
-                await channel.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
+                retryCount = Convert.ToInt32(retryCountObj);
             }
-            catch (JsonException ex) // Erro específico para JSON corrompido ou malformado
+
+            _logger.LogInformation("Tentativa {Attempt}/{Max}",retryCount + 1, Retries.MaxRetryAttempts);
+
+            var json = System.Text.Encoding.UTF8.GetString(
+                eventArgs.Body.ToArray());
+
+            var pedido = JsonSerializer.Deserialize<Pedido>(json);
+
+            #region Validações de negócio
+
+            if (pedido is null)
+                throw new Exception("Pedido inválido — desserialização retornou null");
+
+            if (pedido.ValorTotal < 0)
             {
-                Console.WriteLine($"❌ JSON corrompido: {ex.Message} → DLQ");
-                await channel.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
+                _logger.LogWarning("Pedido {Id} com valor negativo → DLQ", pedido.Id);
+                await _channel!.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
+                return;
             }
-            catch (Exception ex) // Erro genérico para outros tipos de falhas (temporárias ou não)
+
+            if (string.IsNullOrWhiteSpace(pedido.ClienteEmail))
             {
-                Console.WriteLine($"⚠️ Erro temporário: {ex.Message} → Retry");
-
-                // Vai tentar reenviar para a fila de retry, incrementando o contador de tentativas. Se o limite for excedido, envia para a DLQ.
-                if (retryCount < Retries.MaxRetryAttempts - 1)
-                {
-                    var newRetryCount = retryCount + 1;
-
-                    var headers = new Dictionary<string, object?>
-                    {
-                        { "x-retry-count", newRetryCount }
-                    };
-
-                    var retryProperties = new BasicProperties
-                    {
-                        DeliveryMode = DeliveryModes.Persistent,
-                        ContentType = "application/json",
-                        ContentEncoding = "utf-8",
-                        Headers = headers
-                    };
-
-                    await channel.BasicPublishAsync(exchange: Exchanges.Retry, routingKey: RoutingKeys.PedidoRetry, mandatory: false, basicProperties: retryProperties, body: eventArgs.Body.ToArray());
-
-                    Console.WriteLine($"Enviado para retry (Tentativa {newRetryCount + 1} em {Retries.RetryDelayMs}ms)");
-                    Console.WriteLine();
-
-                    await channel.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
-                }
-                else
-                {
-                    Console.WriteLine($"❌ Limite excedido → DLQ");
-                    await channel.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
-                }
-
-                //await channel.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: true);
+                _logger.LogWarning(
+                    "Pedido {Id} sem e-mail → DLQ", pedido.Id);
+                await _channel!.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
+                return;
             }
+
+            if (await _repository.ExistsAsync(pedido.Id))
+            {
+                _logger.LogWarning("Pedido {Id} já processado — duplicata ignorada", pedido.Id);
+
+                await _channel!.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
+                return;
+            }
+
+            if (SimularErroTemporario)
+                throw new Exception("Erro temporário simulado!");
+
+            #endregion
+
+            PedidoProcessado pedidoProcessado = PedidoProcessado.FromPedido(pedido, retryCount + 1);
+            await _repository.SaveAsync(pedidoProcessado);
+
+            _logger.LogInformation("Pedido {Id} persistido no MongoDB com sucesso", pedido.Id);
+
+            await _channel!.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "JSON corrompido → DLQ");
+            await _channel!.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro → avaliando retry");
+            await HandleRetryAsync(eventArgs, retryCount);
+        }
+    }
+
+    private async Task HandleRetryAsync(
+        BasicDeliverEventArgs eventArgs, int retryCount)
+    {
+        if (retryCount < Retries.MaxRetryAttempts - 1)
+        {
+            var newRetryCount = retryCount + 1;
+
+            var retryProperties = new BasicProperties
+            {
+                DeliveryMode = DeliveryModes.Persistent,
+                ContentType = "application/json",
+                ContentEncoding = "utf-8",
+                Headers = new Dictionary<string, object?>
+                {
+                    { "x-retry-count", newRetryCount }
+                }
+            };
+
+            await _channel!.BasicPublishAsync(
+                exchange: Exchanges.Retry,
+                routingKey: RoutingKeys.PedidoRetry,
+                mandatory: false,
+                basicProperties: retryProperties,
+                body: eventArgs.Body.ToArray());
+
+            _logger.LogInformation("Retry {Next}/{Max} em {Delay}ms", newRetryCount + 1, Retries.MaxRetryAttempts, Retries.RetryDelayMs);
+
+            await _channel!.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
+        }
+        else
+        {
+            _logger.LogError("Limite de retries excedido → DLQ");
+
+            await _channel!.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
         }
     }
 }

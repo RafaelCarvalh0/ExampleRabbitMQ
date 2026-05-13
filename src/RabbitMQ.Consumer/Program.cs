@@ -1,21 +1,33 @@
-﻿using RabbitMQ.Client;
-using RabbitMQ.Client.Events;
-using RabbitMQ.Consumer.Handlers;
-using RabbitMQ.Shared.Infrastructure;
+using Microsoft.Extensions.Hosting;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using RabbitMQ.Shared.Messaging;
+using RabbitMQ.Consumer;
+using RabbitMQ.Consumer.Repositories;
 
-var settings = new RabbitMqSettings();
-await using var connection = await RabbitMqConnectionFactory.CreateAsync(settings);
-await using var channel = await connection.CreateChannelAsync();
+var builder = Host.CreateApplicationBuilder(args);
 
-await RabbitMqQueueSetup.ConfigureAsync(channel);
-await channel.BasicQosAsync(0, prefetchCount: 1, global: false);
+// Lê configurações do appsettings.json
+var mongoSettings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()!;
 
-var handler = new PedidoHandler(channel);
-var consumer = new AsyncEventingBasicConsumer(channel);
-consumer.ReceivedAsync += handler.HandleAsync;
+var rabbitSettings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>() ?? new RabbitMqSettings();
 
-await channel.BasicConsumeAsync(Queues.Principal, autoAck: false, consumer);
+// Registra serializer global para DateTimeOffset
+BsonSerializer.RegisterSerializer(new DateTimeOffsetSerializer(BsonType.String));
 
-Console.WriteLine("🚀 Consumer rodando. ENTER para parar...");
-Console.ReadLine();
+builder.Services.AddSingleton(mongoSettings);
+builder.Services.AddSingleton(rabbitSettings);
+
+// Repositório e Handler
+builder.Services.AddSingleton<IPedidoRepository, PedidoRepository>();
+builder.Services.AddSingleton<PedidoHandler>();
+builder.Services.AddHostedService<Worker>();
+
+builder.Services.AddWindowsService(options =>
+{
+    options.ServiceName = "Worker.Consumer";
+});
+
+var host = builder.Build();
+host.Run();

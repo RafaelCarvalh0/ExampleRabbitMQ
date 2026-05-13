@@ -4,23 +4,26 @@ namespace RabbitMQ.Producer.Handlers
 {
     public static class PedidoFakeFactory
     {
+        // ← Uma única instância compartilhada
+        private static readonly Random _random = new();
+
         public static Pedido Criar(int index)
         {
             return new Pedido
             {
                 Id = Guid.NewGuid(),
                 ClienteEmail = $"cliente{index}@email.com",
-                ValorTotal = new Random().Next(100, 5000),
+                ValorTotal = _random.Next(100, 5000),
                 DataCriacao = DateTimeOffset.UtcNow,
                 Itens = new List<Item>
-            {
-                new Item
                 {
-                    NomeProduto = $"Produto {index}",
-                    Quantidade = new Random().Next(1, 5),
-                    PrecoUnitario = new Random().Next(20, 1000)
+                    new Item
+                    {
+                        NomeProduto = $"Produto {index}",
+                        Quantidade = _random.Next(1, 5),
+                        PrecoUnitario = _random.Next(20, 1000)
+                    }
                 }
-            }
             };
         }
 
@@ -37,8 +40,8 @@ namespace RabbitMQ.Producer.Handlers
                 new Item
                 {
                     NomeProduto = $"Produto {index}",
-                    Quantidade = new Random().Next(1, 5),
-                    PrecoUnitario = new Random().Next(20, 1000)
+                    Quantidade = _random.Next(1, 5),
+                    PrecoUnitario = _random.Next(20, 1000)
                 }
             }
             };
