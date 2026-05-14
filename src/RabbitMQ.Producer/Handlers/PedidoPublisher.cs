@@ -1,5 +1,5 @@
 ﻿using RabbitMQ.Client;
-using RabbitMQ.Model.Models;
+using RabbitMQ.Models.Models;
 using RabbitMQ.Shared.Messaging;
 using System.Text.Json;
 

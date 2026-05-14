@@ -1,11 +1,11 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using RabbitMQ.Model.Models;
+using RabbitMQ.Models.Models;
 using RabbitMQ.Shared.Messaging;
-using RabbitMQ.Consumer.Models;
-using RabbitMQ.Consumer.Repositories;
 using System.Text.Json;
 using RabbitMQ.Models;
+using RabbitMQ.Infrasctructure.Repositories;
+using RabbitMQ.Infrasctructure.Models;
 
 public class PedidoHandler
 {
@@ -17,9 +17,7 @@ public class PedidoHandler
     // ← Garante processamento sequencial
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public PedidoHandler(
-        ILogger<PedidoHandler> logger,
-        IPedidoRepository repository)
+    public PedidoHandler(ILogger<PedidoHandler> logger, IPedidoRepository repository)
     {
         _logger = logger;
         _repository = repository;

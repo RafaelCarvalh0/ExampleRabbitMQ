@@ -2,7 +2,7 @@
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson.Serialization.Serializers;
 
-namespace RabbitMQ.Model.Models;
+namespace RabbitMQ.Models.Models;
 
 public class Pedido
 {

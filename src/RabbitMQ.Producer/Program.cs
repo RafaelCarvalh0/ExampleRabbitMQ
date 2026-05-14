@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using RabbitMQ.Model.Models;
+using RabbitMQ.Models.Models;
 using RabbitMQ.Producer.Handlers;
 using RabbitMQ.Shared.Infrastructure;
 using RabbitMQ.Shared.Messaging;

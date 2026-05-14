@@ -6,14 +6,14 @@ using System.Text.Json;
 
 namespace RabbitMQ.Application.Services.Handlers
 {
-    public class PedidoHandler
+    public class PedidoApplicationHandler
     {
-        private readonly ILogger<PedidoHandler> _logger;
+        private readonly ILogger<PedidoApplicationHandler> _logger;
         private readonly SemaphoreSlim _semaphore = new(1, 1);
         private readonly IHubContext<PedidoHub> _hub;
         private IChannel? _channel;
 
-        public PedidoHandler(ILogger<PedidoHandler> logger, IHubContext<PedidoHub> hub)
+        public PedidoApplicationHandler(ILogger<PedidoApplicationHandler> logger, IHubContext<PedidoHub> hub)
         {
             _logger = logger;
             _hub = hub;
@@ -54,6 +54,11 @@ namespace RabbitMQ.Application.Services.Handlers
                 await _hub.Clients.All.SendAsync("NovoPedido", evento, eventArgs.CancellationToken);
 
                 await _channel.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "JSON corrompido → DLQ");
+                await _channel!.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
             }
             catch (Exception ex)
             {

@@ -1,4 +1,4 @@
-﻿namespace RabbitMQ.Model.Models
+﻿namespace RabbitMQ.Models.Models
 {
     public class Item
     {

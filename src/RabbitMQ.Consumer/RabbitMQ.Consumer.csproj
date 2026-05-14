@@ -10,10 +10,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.7" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.7" />
-    <PackageReference Include="MongoDB.Driver" Version="3.8.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\RabbitMQ.Infrasctructure\RabbitMQ.Infrasctructure.csproj" />
     <ProjectReference Include="..\RabbitMQ.Models\RabbitMQ.Models.csproj" />
     <ProjectReference Include="..\RabbitMQ.Shared\RabbitMQ.Shared.csproj" />
   </ItemGroup>

@@ -1,0 +1,407 @@
+﻿@{
+    ViewData["Title"] = "Histórico de Pedidos";
+    Layout = "_Layout";
+}
+
+<div class="container-fluid px-4 mt-4">
+
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h2 class="fw-bold mb-0">
+                        <i class="bi bi-database text-primary me-2"></i>
+                        Histórico de Pedidos
+                    </h2>
+                    <p class="text-muted mb-0">
+                        Dados do MongoDB · Novos pedidos em tempo real via SignalR
+                    </p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="connection-badge" class="badge bg-secondary px-3 py-2">
+                        <i class="bi bi-circle-fill me-1" style="font-size:8px"></i>
+                        Conectando...
+                    </span>
+                    <button class="btn btn-outline-secondary btn-sm"
+                            onclick="carregarPedidos()">
+                        <i class="bi bi-arrow-clockwise me-1"></i>Recarregar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-primary bg-opacity-10 rounded-3 p-3 me-3">
+                            <i class="bi bi-box-seam text-primary fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">Total no Banco</p>
+                            <h3 class="fw-bold mb-0" id="total-count">—</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-success bg-opacity-10 rounded-3 p-3 me-3">
+                            <i class="bi bi-check-circle text-success fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">Processados</p>
+                            <h3 class="fw-bold mb-0 text-success" id="success-count">—</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-danger bg-opacity-10 rounded-3 p-3 me-3">
+                            <i class="bi bi-x-circle text-danger fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">Falhos (DLQ)</p>
+                            <h3 class="fw-bold mb-0 text-danger" id="error-count">—</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0 bg-warning bg-opacity-10 rounded-3 p-3 me-3">
+                            <i class="bi bi-currency-dollar text-warning fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="text-muted mb-0 small">Volume Total</p>
+                            <h3 class="fw-bold mb-0 text-warning" id="total-value">—</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white border-0 pt-3 pb-2">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h5 class="fw-semibold mb-0">Pedidos</h5>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                    <div class="input-group input-group-sm" style="width:220px">
+                        <span class="input-group-text border-0 bg-light">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text"
+                               id="search-input"
+                               class="form-control border-0 bg-light"
+                               placeholder="Buscar por email ou ID..."
+                               oninput="buscar(this.value)">
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary active"
+                            onclick="filtrar('todos', this)">
+                        Todos
+                    </button>
+                    <button class="btn btn-sm btn-outline-success"
+                            onclick="filtrar('Processado', this)">
+                        Processados
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger"
+                            onclick="filtrar('Falhou', this)">
+                        Falhos
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted mt-2 mb-0">Carregando do MongoDB...</p>
+        </div>
+
+        <div class="card-body p-0" id="table-container" style="display:none">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4 py-3 text-muted fw-semibold small text-uppercase">
+                                Pedido ID
+                            </th>
+                            <th class="py-3 text-muted fw-semibold small text-uppercase">
+                                Cliente
+                            </th>
+                            <th class="py-3 text-muted fw-semibold small text-uppercase">
+                                Valor
+                            </th>
+                            <th class="py-3 text-muted fw-semibold small text-uppercase">
+                                Status
+                            </th>
+                            <th class="py-3 text-muted fw-semibold small text-uppercase">
+                                Motivo
+                            </th>
+                            <th class="py-3 text-muted fw-semibold small text-uppercase">
+                                Processado em
+                            </th>
+                            <th class="py-3 text-muted fw-semibold small text-uppercase text-center">
+                                Ações
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="pedidos-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal delete -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold">
+                    <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+                    Confirmar exclusão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-1">Tem certeza que deseja excluir o pedido?</p>
+                <code id="delete-id" class="text-danger small"></code>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        data-bs-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button"
+                        class="btn btn-danger btn-sm"
+                        id="confirm-delete-btn">
+                    <i class="bi bi-trash me-1"></i>Excluir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script>
+        let todos = [];
+        let filtroAtual = 'todos';
+        let buscaAtual = '';
+        let pedidoParaDeletar = null;
+        const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+
+        // ── SignalR ──────────────────────────────────────────
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/pedidoHub")
+            .withAutomaticReconnect()
+            .build();
+
+        // Novo pedido chegou via RabbitMQ → adiciona no topo
+        connection.on("NovoPedido", function (pedido) {
+            todos.unshift(pedido);
+            atualizarMetricas();
+            renderTabela();
+        });
+
+        // Pedido deletado → remove da lista
+        connection.on("PedidoRemovido", function (pedidoId) {
+            todos = todos.filter(p =>
+                p.pedidoId.toLowerCase() !== pedidoId.toLowerCase());
+            atualizarMetricas();
+            renderTabela();
+        });
+
+        connection.onreconnecting(() => setBadge('warning', 'Reconectando...'));
+        connection.onreconnected(() => setBadge('success', 'Conectado'));
+        connection.start()
+            .then(() => setBadge('success', 'Conectado'))
+            .catch(() => setBadge('danger', 'Desconectado'));
+
+        // ── Carga inicial MongoDB ────────────────────────────
+        async function carregarPedidos() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('table-container').style.display = 'none';
+
+            try {
+                const res = await fetch('/api/pedidos');
+                todos = await res.json();
+                atualizarMetricas();
+                renderTabela();
+            } catch (err) {
+                console.error('Erro ao carregar:', err);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('table-container').style.display = 'block';
+            }
+        }
+
+        // ── Render ───────────────────────────────────────────
+        function renderTabela() {
+            const tbody = document.getElementById('pedidos-tbody');
+
+            let lista = [...todos];
+
+            if (filtroAtual !== 'todos')
+                lista = lista.filter(p => p.status === filtroAtual);
+
+            if (buscaAtual.trim())
+                lista = lista.filter(p =>
+                    p.clienteEmail.toLowerCase().includes(buscaAtual.toLowerCase()) ||
+                    p.pedidoId.toLowerCase().includes(buscaAtual.toLowerCase()));
+
+            if (lista.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 opacity-25"></i>
+                            Nenhum pedido encontrado
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tbody.innerHTML = lista.map(p => {
+                const ok = p.status === 'Processado';
+                return `
+                    <tr id="row-${p.pedidoId}">
+                        <td class="ps-4">
+                            <span class="font-monospace small text-muted"
+                                  title="${p.pedidoId}">
+                                ${p.pedidoId.substring(0, 8)}...
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="avatar-circle bg-primary bg-opacity-10 text-primary">
+                                    ${p.clienteEmail.charAt(0).toUpperCase()}
+                                </div>
+                                <span class="small">${p.clienteEmail}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="fw-semibold">
+                                ${p.valorTotal.toLocaleString('pt-BR', {
+                                    style: 'currency', currency: 'BRL'
+                                })}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill px-3 py-2
+                                ${ok ? 'bg-success bg-opacity-10 text-success'
+                                     : 'bg-danger bg-opacity-10 text-danger'}">
+                                <i class="bi ${ok ? 'bi-check-circle-fill'
+                                                 : 'bi-x-circle-fill'} me-1"></i>
+                                ${p.status}
+                            </span>
+                        </td>
+                        <td class="text-muted small">
+                            ${p.motivo ?? '<span class="text-muted">—</span>'}
+                        </td>
+                        <td class="text-muted small">
+                            ${new Date(p.processadoEm).toLocaleString('pt-BR')}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-danger"
+                                    onclick="confirmarDelete('${p.pedidoId}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+
+        // ── Métricas ─────────────────────────────────────────
+        function atualizarMetricas() {
+            const processados = todos.filter(p => p.status === 'Processado');
+            const falhos = todos.filter(p => p.status !== 'Processado');
+            const volume = processados.reduce((s, p) => s + p.valorTotal, 0);
+
+            document.getElementById('total-count').textContent = todos.length;
+            document.getElementById('success-count').textContent = processados.length;
+            document.getElementById('error-count').textContent = falhos.length;
+            document.getElementById('total-value').textContent =
+                volume.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        // ── Delete ────────────────────────────────────────────
+        function confirmarDelete(pedidoId) {
+            pedidoParaDeletar = pedidoId;
+            document.getElementById('delete-id').textContent = pedidoId;
+            deleteModal.show();
+        }
+
+        document.getElementById('confirm-delete-btn')
+            .addEventListener('click', async () => {
+                if (!pedidoParaDeletar) return;
+
+                const btn = document.getElementById('confirm-delete-btn');
+                btn.disabled = true;
+                btn.innerHTML =
+                    '<span class="spinner-border spinner-border-sm me-1"></span>Excluindo...';
+
+                try {
+                    const res = await fetch(`/api/pedidos/${pedidoParaDeletar}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (res.ok) {
+                        deleteModal.hide();
+                        // SignalR notifica e atualiza automaticamente
+                    } else {
+                        alert('Erro ao excluir pedido.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('Erro de conexão.');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-trash me-1"></i>Excluir';
+                    pedidoParaDeletar = null;
+                }
+            });
+
+        // ── Filtro e Busca ────────────────────────────────────
+        function filtrar(status, btn) {
+            filtroAtual = status;
+            document.querySelectorAll(
+                '.btn-outline-secondary, .btn-outline-success, .btn-outline-danger')
+                .forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderTabela();
+        }
+
+        function buscar(valor) {
+            buscaAtual = valor;
+            renderTabela();
+        }
+
+        function setBadge(type, text) {
+            const b = document.getElementById('connection-badge');
+            b.className = `badge bg-${type} px-3 py-2`;
+            b.innerHTML =
+                `<i class="bi bi-circle-fill me-1" style="font-size:8px"></i> ${text}`;
+        }
+
+        // Inicia carregando do banco
+        carregarPedidos();
+    </script>
+}

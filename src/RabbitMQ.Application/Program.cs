@@ -1,20 +1,34 @@
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using RabbitMQ.Application.Services;
 using RabbitMQ.Application.Services.Handlers;
 using RabbitMQ.Application.Services.Workers;
+using RabbitMQ.Infrasctructure.Repositories;
 using RabbitMQ.Shared.Messaging;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Serializer DateTimeOffset → string ISO
+BsonSerializer.RegisterSerializer(new DateTimeOffsetSerializer(BsonType.String));
+
+var rabbitSettings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>()!;
+var mongoSettings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>() ?? new MongoDbSettings();
+
+builder.Services.AddSingleton(rabbitSettings);
+builder.Services.AddSingleton(mongoSettings);
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-var rabbitSettings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>();
-builder.Services.AddSingleton<PedidoHandler>();
-
-builder.Services.AddSingleton(rabbitSettings);
-builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+
+builder.Services.AddSingleton<PedidoApplicationHandler>();
+
+// Repositório
+builder.Services.AddSingleton<IPedidoRepository, PedidoRepository>();
 builder.Services.AddHostedService<PedidoConsumerWorker>();
+
 
 var app = builder.Build();
 

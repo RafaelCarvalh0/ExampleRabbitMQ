@@ -4,7 +4,6 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using RabbitMQ.Shared.Infrastructure;
 using RabbitMQ.Shared.Messaging;
-using System.Text.Json;
 
 namespace RabbitMQ.Application.Services.Workers
 {
@@ -12,11 +11,11 @@ namespace RabbitMQ.Application.Services.Workers
     {
         private readonly ILogger<PedidoConsumerWorker> _logger;
         private readonly RabbitMqSettings _settings;
-        private readonly PedidoHandler _handler;
+        private readonly PedidoApplicationHandler _handler;
         private IConnection? _connection;
         private IChannel? _channel;
 
-        public PedidoConsumerWorker(ILogger<PedidoConsumerWorker> logger, IHubContext<PedidoHub> hub, RabbitMqSettings settings, PedidoHandler handler)
+        public PedidoConsumerWorker(ILogger<PedidoConsumerWorker> logger, IHubContext<PedidoHub> hub, RabbitMqSettings settings, PedidoApplicationHandler handler)
         {
             _logger = logger;
             _settings = settings;
@@ -29,7 +28,7 @@ namespace RabbitMQ.Application.Services.Workers
             _channel = await _connection.CreateChannelAsync();
 
             await RabbitMqQueueSetup.ConfigureAsync(_channel);
-            await _channel.BasicQosAsync(0, prefetchCount: 10, global: false);
+            await _channel.BasicQosAsync(0, prefetchCount: 1, global: false);
 
             // Injeta o channel no handler agora que ele existe
             _handler.SetChannel(_channel);

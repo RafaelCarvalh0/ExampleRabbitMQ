@@ -2,7 +2,7 @@ using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using RabbitMQ.Consumer;
-using RabbitMQ.Consumer.Repositories;
+using RabbitMQ.Infrasctructure.Repositories;
 using RabbitMQ.Shared.Messaging;
 
 var builder = Host.CreateApplicationBuilder(args);
