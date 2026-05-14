@@ -1,4 +1,5 @@
-﻿using RabbitMQ.Infrasctructure.Models;
+﻿
+using RabbitMQ.Models.Models;
 
 namespace RabbitMQ.Infrasctructure.Repositories
 {

@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using RabbitMQ.Models;
+using RabbitMQ.Models.Models;
 using System.Text.Json;
 
 namespace RabbitMQ.Application.Services.Handlers
@@ -40,7 +40,7 @@ namespace RabbitMQ.Application.Services.Handlers
             {
                 var json = System.Text.Encoding.UTF8.GetString(eventArgs.Body.ToArray());
 
-                var evento = JsonSerializer.Deserialize<PedidoProcessadoEvento>(json);
+                var evento = JsonSerializer.Deserialize<PedidoProcessado>(json);
 
                 if (evento is null)
                 {

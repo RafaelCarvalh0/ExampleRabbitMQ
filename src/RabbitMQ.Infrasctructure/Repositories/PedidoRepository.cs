@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
-using RabbitMQ.Infrasctructure.Models;
+using RabbitMQ.Models.Models;
 using RabbitMQ.Shared.Messaging;
 
 namespace RabbitMQ.Infrasctructure.Repositories

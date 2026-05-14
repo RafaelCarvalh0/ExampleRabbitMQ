@@ -5,7 +5,6 @@ using RabbitMQ.Shared.Messaging;
 using System.Text.Json;
 using RabbitMQ.Models;
 using RabbitMQ.Infrasctructure.Repositories;
-using RabbitMQ.Infrasctructure.Models;
 
 public class PedidoHandler
 {
@@ -91,11 +90,7 @@ public class PedidoHandler
 
             #endregion
 
-            PedidoProcessado pedidoProcessado = PedidoProcessado.FromPedido(pedido, retryCount + 1);
-            await _repository.SaveAsync(pedidoProcessado);
-
-            await PublicarEventoAsync(pedido, "Processado");
-
+            await PublicarEventoAsync(pedido, "Processado", null, retryCount + 1);
             _logger.LogInformation("Pedido {Id} persistido no MongoDB com sucesso", pedido.Id);
 
             await _channel!.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
@@ -112,19 +107,12 @@ public class PedidoHandler
         }
     }
 
-    private async Task PublicarEventoAsync(Pedido pedido, string status, string? motivo = null)
+    private async Task PublicarEventoAsync(Pedido pedido, string status, string? motivo = null, int? tentativas = null)
     {
-        var evento = new PedidoProcessadoEvento
-        {
-            PedidoId = pedido.Id,
-            ClienteEmail = pedido.ClienteEmail,
-            ValorTotal = pedido.ValorTotal,
-            Status = status,
-            Motivo = motivo,
-            ProcessadoEm = DateTimeOffset.UtcNow
-        };
+        PedidoProcessado pedidoProcessado = PedidoProcessado.FromPedido(pedido, status, motivo, tentativas);
+        await _repository.SaveAsync(pedidoProcessado);
 
-        var json = JsonSerializer.Serialize(evento);
+        var json = JsonSerializer.Serialize(pedidoProcessado);
         var body = System.Text.Encoding.UTF8.GetBytes(json);
 
         var props = new BasicProperties
@@ -173,7 +161,7 @@ public class PedidoHandler
         {
             _logger.LogError("Limite de retries excedido → DLQ");
 
-            await PublicarEventoAsync(pedido, "Falhou", "Limite de retries excedido");
+            await PublicarEventoAsync(pedido, "Falhou", "Limite de retries excedido", retryCount);
             await _channel!.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
         }
     }

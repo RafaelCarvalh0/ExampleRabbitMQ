@@ -1,26 +1,26 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using RabbitMQ.Models.Models;
 
-namespace RabbitMQ.Infrasctructure.Models
+namespace RabbitMQ.Models.Models
 {
     public class PedidoProcessado
     {
         [BsonId]
         [BsonRepresentation(BsonType.String)]
         public Guid PedidoId { get; set; }
-        public string ClienteEmail { get; set; } = string.Empty;
+        public string ClienteEmail { get; set; }
         public decimal ValorTotal { get; set; }
         public DateTimeOffset DataCriacao { get; set; }
         public List<Item> Itens { get; set; } = new();
 
         // Campos de controle do Worker
         public DateTimeOffset ProcessadoEm { get; set; }
-        public string Status { get; set; } = "Processado";
-        public int Tentativas { get; set; }
+        public string Status { get; set; }
+        public string? Motivo { get; set; }
+        public int? Tentativas { get; set; }
 
         // Factory — constrói a partir do Pedido recebido
-        public static PedidoProcessado FromPedido(Pedido pedido, int tentativas) => new()
+        public static PedidoProcessado FromPedido(Pedido pedido, string status, string? motivo, int? tentativas) => new()
         {
             PedidoId = pedido.Id,
             ClienteEmail = pedido.ClienteEmail,
@@ -28,7 +28,8 @@ namespace RabbitMQ.Infrasctructure.Models
             DataCriacao = pedido.DataCriacao,
             Itens = pedido.Itens,
             ProcessadoEm = DateTimeOffset.UtcNow,
-            Status = "Processado",
+            Status = status,
+            Motivo = motivo,
             Tentativas = tentativas
         };
     }
