@@ -13,7 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 BsonSerializer.RegisterSerializer(new DateTimeOffsetSerializer(BsonType.String));
 
 var rabbitSettings = builder.Configuration.GetSection("RabbitMqSettings").Get<RabbitMqSettings>()!;
-var mongoSettings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>() ?? new MongoDbSettings();
+var mongoSettings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()!;
 
 builder.Services.AddSingleton(rabbitSettings);
 builder.Services.AddSingleton(mongoSettings);

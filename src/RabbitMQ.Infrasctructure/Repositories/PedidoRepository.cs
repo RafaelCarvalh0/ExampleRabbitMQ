@@ -44,10 +44,7 @@ namespace RabbitMQ.Infrasctructure.Repositories
 
         public async Task<List<PedidoProcessadoEntity>> GetAllAsync()
         {
-            return await _collection
-            .Find(_ => true)
-            .SortByDescending(p => p.ProcessadoEm)
-            .ToListAsync();
+            return await _collection.Find(_ => true).SortByDescending(p => p.ProcessadoEm).ToListAsync();
         }
 
         public async Task<bool> DeleteAsync(Guid pedidoId)

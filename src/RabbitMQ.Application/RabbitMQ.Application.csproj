@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RabbitMQ.Consumer\RabbitMQ.Consumer.csproj" />
     <ProjectReference Include="..\RabbitMQ.Infrasctructure\RabbitMQ.Infrasctructure.csproj" />
     <ProjectReference Include="..\RabbitMQ.Models\RabbitMQ.Models.csproj" />
     <ProjectReference Include="..\RabbitMQ.Shared\RabbitMQ.Shared.csproj" />
