@@ -1,13 +1,12 @@
-﻿
-using RabbitMQ.Models.Models;
+﻿using RabbitMQ.Models.Models.Pedido;
 
 namespace RabbitMQ.Infrasctructure.Repositories
 {
     public interface IPedidoRepository
     {
-        Task SaveAsync(PedidoProcessado pedido);
+        Task SaveAsync(PedidoProcessadoEntity pedido);
         Task<bool> ExistsAsync(Guid id);
-        Task<List<PedidoProcessado>> GetAllAsync();
+        Task<List<PedidoProcessadoEntity>> GetAllAsync();
         Task<bool> DeleteAsync(Guid pedidoId);
     }
 }

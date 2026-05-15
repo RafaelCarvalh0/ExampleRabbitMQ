@@ -1,26 +1,30 @@
 ﻿using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson.Serialization.Serializers;
+using RabbitMQ.Models.Models.Pedido.Enums;
+using System.Text.Json.Serialization;
 
-namespace RabbitMQ.Models.Models
+namespace RabbitMQ.Models.Models.Pedido
 {
-    public class PedidoProcessado
+    public class PedidoProcessadoEntity
     {
         [BsonId]
         [BsonRepresentation(BsonType.String)]
         public Guid PedidoId { get; set; }
         public string ClienteEmail { get; set; }
         public decimal ValorTotal { get; set; }
-        public DateTimeOffset DataCriacao { get; set; }
-        public List<Item> Itens { get; set; } = new();
 
-        // Campos de controle do Worker
+        [BsonSerializer(typeof(DateTimeOffsetSerializer))]
+        public DateTimeOffset DataCriacao { get; set; }
+        public List<PedidoItemRequest> Itens { get; set; }
+
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public StatusPedido Status { get; set; }
         public DateTimeOffset ProcessadoEm { get; set; }
-        public string Status { get; set; }
         public string? Motivo { get; set; }
         public int? Tentativas { get; set; }
 
-        // Factory — constrói a partir do Pedido recebido
-        public static PedidoProcessado FromPedido(Pedido pedido, string status, string? motivo, int? tentativas) => new()
+        public static PedidoProcessadoEntity FromPedido(PedidoRequest pedido, StatusPedido status, string? motivo = null, int? tentativas = null) => new()
         {
             PedidoId = pedido.Id,
             ClienteEmail = pedido.ClienteEmail,

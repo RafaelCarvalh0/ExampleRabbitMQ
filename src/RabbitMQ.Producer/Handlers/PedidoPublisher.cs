@@ -1,5 +1,5 @@
 ﻿using RabbitMQ.Client;
-using RabbitMQ.Models.Models;
+using RabbitMQ.Models.Models.Pedido;
 using RabbitMQ.Shared.Messaging;
 using System.Text.Json;
 
@@ -7,7 +7,7 @@ namespace RabbitMQ.Producer.Handlers
 {
     public class PedidoPublisher(IChannel channel)
     {
-        public async Task PublicarAsync(Pedido pedido)
+        public async Task PublicarAsync(PedidoRequest pedido)
         {
             var body = JsonSerializer.SerializeToUtf8Bytes(pedido);
 

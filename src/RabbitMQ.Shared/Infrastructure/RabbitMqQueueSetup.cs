@@ -7,7 +7,7 @@ namespace RabbitMQ.Shared.Infrastructure
     {
         public static async Task ConfigureAsync(IChannel channel)
         {
-            #region Exchange Principal + Queue Configuration
+            #region Exchange Principal + Principal Queue Configuration
 
             // Principal
             await channel.ExchangeDeclareAsync(exchange: Exchanges.Principal, type: ExchangeType.Direct, durable: true, autoDelete: false);
@@ -64,7 +64,7 @@ namespace RabbitMQ.Shared.Infrastructure
             #endregion
 
 
-            #region Exchange Processado + Queue Processado Configuration
+            #region Exchange Processado + Processado Queue Configuration
 
             // Exchange para pedidos processados                                     // Fanout — todos os consumers recebem
             await channel.ExchangeDeclareAsync(exchange: Exchanges.Processado, type: ExchangeType.Fanout, durable: true, autoDelete: false);

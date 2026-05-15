@@ -1,13 +1,13 @@
 ﻿using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
-using RabbitMQ.Models.Models;
+using RabbitMQ.Models.Models.Pedido;
 using RabbitMQ.Shared.Messaging;
 
 namespace RabbitMQ.Infrasctructure.Repositories
 {
     public class PedidoRepository : IPedidoRepository
     {
-        private readonly IMongoCollection<PedidoProcessado> _collection;
+        private readonly IMongoCollection<PedidoProcessadoEntity> _collection;
         private readonly ILogger<PedidoRepository> _logger;
 
         public PedidoRepository(MongoDbSettings settings, ILogger<PedidoRepository> logger)
@@ -16,12 +16,12 @@ namespace RabbitMQ.Infrasctructure.Repositories
 
             var client = new MongoClient(settings.ConnectionString);
             var database = client.GetDatabase(settings.DatabaseName);
-            _collection = database.GetCollection<PedidoProcessado>(settings.CollectionName);
+            _collection = database.GetCollection<PedidoProcessadoEntity>(settings.CollectionName);
 
             _logger.LogInformation("MongoDB conectado — database: {Db}", settings.DatabaseName);
         }
 
-        public async Task SaveAsync(PedidoProcessado pedido)
+        public async Task SaveAsync(PedidoProcessadoEntity pedido)
         {
             try
             {
@@ -38,11 +38,11 @@ namespace RabbitMQ.Infrasctructure.Repositories
 
         public async Task<bool> ExistsAsync(Guid pedidoId)
         {
-            var filter = Builders<PedidoProcessado>.Filter.Eq(p => p.PedidoId, pedidoId);
+            var filter = Builders<PedidoProcessadoEntity>.Filter.Eq(p => p.PedidoId, pedidoId);
             return await _collection.Find(filter).AnyAsync();
         }
 
-        public async Task<List<PedidoProcessado>> GetAllAsync()
+        public async Task<List<PedidoProcessadoEntity>> GetAllAsync()
         {
             return await _collection
             .Find(_ => true)
@@ -52,7 +52,7 @@ namespace RabbitMQ.Infrasctructure.Repositories
 
         public async Task<bool> DeleteAsync(Guid pedidoId)
         {
-            var filter = Builders<PedidoProcessado>.Filter
+            var filter = Builders<PedidoProcessadoEntity>.Filter
             .Eq(p => p.PedidoId, pedidoId);
 
             var result = await _collection.DeleteOneAsync(filter);

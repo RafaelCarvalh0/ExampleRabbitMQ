@@ -1,10 +1,11 @@
 ﻿using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
-using RabbitMQ.Models.Models;
 using RabbitMQ.Shared.Messaging;
 using System.Text.Json;
 using RabbitMQ.Models;
 using RabbitMQ.Infrasctructure.Repositories;
+using RabbitMQ.Models.Models.Pedido;
+using RabbitMQ.Models.Models.Pedido.Enums;
 
 public class PedidoHandler
 {
@@ -43,7 +44,7 @@ public class PedidoHandler
 
         var json = System.Text.Encoding.UTF8.GetString(eventArgs.Body.ToArray());
 
-        var pedido = JsonSerializer.Deserialize<Pedido>(json);
+        var pedido = JsonSerializer.Deserialize<PedidoRequest>(json);
 
         try
         {
@@ -63,7 +64,7 @@ public class PedidoHandler
             {
                 _logger.LogWarning("Pedido {Id} com valor negativo → DLQ", pedido.Id);
 
-                await PublicarEventoAsync(pedido, "Falhou", "Valor negativo");
+                await PublicarEventoAsync(pedido, StatusPedido.Falhou, "Valor negativo");
                 await _channel!.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
                 return;
             }
@@ -72,7 +73,7 @@ public class PedidoHandler
             {
                 _logger.LogWarning("Pedido {Id} sem e-mail → DLQ", pedido.Id);
 
-                await PublicarEventoAsync(pedido, "Falhou", "Email inválido");
+                await PublicarEventoAsync(pedido, StatusPedido.Falhou, "Email inválido");
                 await _channel!.BasicNackAsync(eventArgs.DeliveryTag, false, requeue: false);
                 return;
             }
@@ -90,7 +91,7 @@ public class PedidoHandler
 
             #endregion
 
-            await PublicarEventoAsync(pedido, "Processado", null, retryCount + 1);
+            await PublicarEventoAsync(pedido, StatusPedido.Processado, null, retryCount + 1);
             _logger.LogInformation("Pedido {Id} persistido no MongoDB com sucesso", pedido.Id);
 
             await _channel!.BasicAckAsync(eventArgs.DeliveryTag, multiple: false);
@@ -107,9 +108,9 @@ public class PedidoHandler
         }
     }
 
-    private async Task PublicarEventoAsync(Pedido pedido, string status, string? motivo = null, int? tentativas = null)
+    private async Task PublicarEventoAsync(PedidoRequest pedido, StatusPedido status, string? motivo = null, int? tentativas = null)
     {
-        PedidoProcessado pedidoProcessado = PedidoProcessado.FromPedido(pedido, status, motivo, tentativas);
+        PedidoProcessadoEntity pedidoProcessado = PedidoProcessadoEntity.FromPedido(pedido, status, motivo, tentativas);
         await _repository.SaveAsync(pedidoProcessado);
 
         var json = JsonSerializer.Serialize(pedidoProcessado);
@@ -129,7 +130,7 @@ public class PedidoHandler
             body: body);
     }
 
-    private async Task HandleRetryAsync(BasicDeliverEventArgs eventArgs, Pedido pedido, int retryCount)
+    private async Task HandleRetryAsync(BasicDeliverEventArgs eventArgs, PedidoRequest pedido, int retryCount)
     {
         if (retryCount < Retries.MaxRetryAttempts - 1)
         {
@@ -161,7 +162,7 @@ public class PedidoHandler
         {
             _logger.LogError("Limite de retries excedido → DLQ");
 
-            await PublicarEventoAsync(pedido, "Falhou", "Limite de retries excedido", retryCount);
+            await PublicarEventoAsync(pedido, StatusPedido.Falhou, "Limite de retries excedido", retryCount);
             await _channel!.BasicNackAsync(eventArgs.DeliveryTag, multiple: false, requeue: false);
         }
     }

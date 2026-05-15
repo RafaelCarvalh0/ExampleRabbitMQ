@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using RabbitMQ.Models.Models;
+using RabbitMQ.Models.Models.Pedido;
 using RabbitMQ.Producer.Handlers;
 using RabbitMQ.Shared.Infrastructure;
 using RabbitMQ.Shared.Messaging;
@@ -12,11 +12,9 @@ var rabbitSettings = builder
     .GetSection("RabbitMqSettings")
     .Get<RabbitMqSettings>()!;
 
-await using var connection =
-    await RabbitMqConnectionFactory.CreateConnectionAsync(rabbitSettings);
+await using var connection = await RabbitMqConnectionFactory.CreateConnectionAsync(rabbitSettings);
 
-await using var channel =
-    await connection.CreateChannelAsync();
+await using var channel = await connection.CreateChannelAsync();
 
 await RabbitMqQueueSetup.ConfigureAsync(channel);
 
@@ -48,9 +46,7 @@ while (true)
 
     for (int i = 0; i < quantidade; i++)
     {
-        Pedido pedido = !criarPedidoComErro
-            ? PedidoFakeFactory.Criar(i)
-            : PedidoFakeFactory.CriarComErro(i);
+        PedidoRequest pedido = !criarPedidoComErro ? PedidoFakeFactory.Criar(i) : PedidoFakeFactory.CriarComErro(i);
 
         await publisher.PublicarAsync(pedido);
 

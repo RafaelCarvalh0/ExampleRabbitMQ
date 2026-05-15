@@ -1,4 +1,4 @@
-﻿using RabbitMQ.Models.Models;
+﻿using RabbitMQ.Models.Models.Pedido;
 
 namespace RabbitMQ.Producer.Handlers
 {
@@ -7,17 +7,17 @@ namespace RabbitMQ.Producer.Handlers
         // ← Uma única instância compartilhada
         private static readonly Random _random = new();
 
-        public static Pedido Criar(int index)
+        public static PedidoRequest Criar(int index)
         {
-            return new Pedido
+            return new PedidoRequest
             {
                 Id = Guid.NewGuid(),
                 ClienteEmail = $"cliente{index}@email.com",
                 ValorTotal = _random.Next(100, 5000),
                 DataCriacao = DateTimeOffset.UtcNow,
-                Itens = new List<Item>
+                Itens = new List<PedidoItemRequest>
                 {
-                    new Item
+                    new PedidoItemRequest
                     {
                         NomeProduto = $"Produto {index}",
                         Quantidade = _random.Next(1, 5),
@@ -27,17 +27,17 @@ namespace RabbitMQ.Producer.Handlers
             };
         }
 
-        public static Pedido CriarComErro(int index)
+        public static PedidoRequest CriarComErro(int index)
         {
-            return new Pedido
+            return new PedidoRequest
             {
                 Id = Guid.NewGuid(),
                 ClienteEmail = $"cliente{index}@email.com",
                 ValorTotal = -100, // Vai cair na DLQ
                 DataCriacao = DateTimeOffset.UtcNow,
-                Itens = new List<Item>
+                Itens = new List<PedidoItemRequest>
             {
-                new Item
+                new PedidoItemRequest
                 {
                     NomeProduto = $"Produto {index}",
                     Quantidade = _random.Next(1, 5),
